@@ -110,7 +110,7 @@ void draw_game(int start_y, int start_x, int key_pressed) {
                 int cell_y = start_y + i * CELL_HEIGHT;
                 int cell_x = start_x + j * CELL_WIDTH;
 
-                // Centrare perfectă
+               
 		int center_y = cell_y + (CELL_HEIGHT) / 2 ;
 		int center_x = cell_x + (CELL_WIDTH ) / 2 ;
 
