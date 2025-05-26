@@ -1,29 +1,28 @@
-#include <ncurses.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
 #include <stdio.h>
+#include <ncurses.h>
+#include <unistd.h>
 
 #define SIZE 4
-#define CELL_WIDTH 7   // latime celula
-#define CELL_HEIGHT 3  // inaltime celula
+#define CELL_WIDTH 7
+#define CELL_HEIGHT 3
 
 int grid[SIZE][SIZE];
-int score = 0; // scor global
+int score = 0;
 
-// Prototipurile functii
 void spawn_tile();
 void init_game();
 void draw_grid(int start_y, int start_x);
-void draw_game(int start_y, int start_x);
+void draw_game(int start_y, int start_x, int key_pressed);
+void draw_joystick(int start_y, int start_x, int key_pressed);
 int move_left();
 int move_right();
 int move_up();
 int move_down();
 int can_move();
 
-// --- Functia spawn_tile ---
-// Adauga un nou tile (2 sau 4) intr-o celula goala.
 void spawn_tile() {
     int empty_cells[SIZE * SIZE][2];
     int count = 0;
@@ -40,13 +39,10 @@ void spawn_tile() {
         int r = rand() % count;
         int i = empty_cells[r][0];
         int j = empty_cells[r][1];
-        grid[i][j] = (rand() % 10 == 0) ? 4 : 2;  // 10% șansă pentru 4, altfel 2
+        grid[i][j] = (rand() % 10 == 0) ? 4 : 2;
     }
 }
 
-// --- Functia init_game ---
-// Initializează jocul: seteaza toate celulele la 0,
-// reseteaza scorul si plasează primele doua tile-uri.
 void init_game() {
     for (int i = 0; i < SIZE; i++)
         for (int j = 0; j < SIZE; j++)
@@ -56,11 +52,8 @@ void init_game() {
     spawn_tile();
 }
 
-// --- Functia draw_grid ---
-// Deseneaza grila de baza
 void draw_grid(int start_y, int start_x) {
     int i, j, k, l;
-    // Desenam liniile orizontale și intersectiile
     for (i = 0; i <= SIZE; i++) {
         for (j = 0; j <= SIZE; j++) {
             move(start_y + i * CELL_HEIGHT, start_x + j * CELL_WIDTH);
@@ -83,7 +76,6 @@ void draw_grid(int start_y, int start_x) {
             else
                 addch(ACS_PLUS);
 
-            // Completați linia orizontală între intersecții
             if (j < SIZE) {
                 for (k = 0; k < CELL_WIDTH - 1; k++) {
                     addch(ACS_HLINE);
@@ -92,7 +84,6 @@ void draw_grid(int start_y, int start_x) {
         }
     }
 
-    // Desenăm liniile verticale și completăm interiorul celulelor cu spații
     for (i = 0; i < SIZE; i++) {
         for (l = 1; l < CELL_HEIGHT; l++) {
             for (j = 0; j <= SIZE; j++) {
@@ -107,33 +98,76 @@ void draw_grid(int start_y, int start_x) {
     }
 }
 
-// --- Functia draw_game ---
-// Deseneaza starea actuala a jocului: grila si numerele din celule.
-// Afiseaza ai scorul in dreapta grilei.
-void draw_game(int start_y, int start_x) {
+void draw_game(int start_y, int start_x, int key_pressed) {
     draw_grid(start_y, start_x);
-    // Afisarea numerelor in celule
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < SIZE; j++) {
             if (grid[i][j] != 0) {
                 char buf[16];
                 sprintf(buf, "%d", grid[i][j]);
-                int len = strlen(buf);
-                // Centrarea numarului in celula
-                int y = start_y + i * CELL_HEIGHT + CELL_HEIGHT / 2;
-                int x = start_x + j * CELL_WIDTH + (CELL_WIDTH - len) / 2;
-                mvprintw(y, x, "%s", buf);
+               
+
+                int cell_y = start_y + i * CELL_HEIGHT;
+                int cell_x = start_x + j * CELL_WIDTH;
+
+                // Centrare perfectă
+		int center_y = cell_y + (CELL_HEIGHT) / 2 ;
+		int center_x = cell_x + (CELL_WIDTH ) / 2 ;
+
+                int color = 1;
+                int value = grid[i][j];
+                switch (value) {
+                 case 2: color = 1; break;
+		case 4: color = 2; break;
+		case 8: color = 3; break;
+		case 16: color = 4; break;
+		case 32: color = 5; break;
+		case 64: color = 6; break;
+		case 128: color = 7; break;
+		case 256: color = 8; break;
+		case 512: color = 9; break;
+		case 1024: color = 10; break;
+		case 2048: color = 11; break;
+		default: color = 12; break;
+                }
+
+                attron(COLOR_PAIR(color) | A_BOLD);
+                mvprintw(center_y, center_x, "%s", buf);
+                attroff(COLOR_PAIR(color) | A_BOLD);
             }
         }
     }
-    // afiseaza scorul în dreapta grilei.
-    // Calculam pozitia astfel incat scorul sa fie pe acelasi rand.
-    mvprintw(start_y, start_x + SIZE * CELL_WIDTH + 2, "Scor: %d", score);
+    mvprintw(start_y + SIZE * CELL_HEIGHT + 1, start_x, "Scor: %d", score);
+    draw_joystick(start_y + 2, start_x + SIZE * CELL_WIDTH + 8, key_pressed);
 }
 
-// --- Functia move_left ---
-// Mutt tile-urile spre stanga și combina-le conform regulilor jocului.
-// Actualizează si scorul la combinare.
+void draw_joystick(int start_y, int start_x, int key_pressed) {
+    int highlight_up = (key_pressed == KEY_UP);
+    int highlight_down = (key_pressed == KEY_DOWN);
+    int highlight_left = (key_pressed == KEY_LEFT);
+    int highlight_right = (key_pressed == KEY_RIGHT);
+
+    move(start_y, start_x + 4);
+    if (highlight_up) attron(A_REVERSE);
+    printw("[^]");
+    if (highlight_up) attroff(A_REVERSE);
+
+    move(start_y + 1, start_x);
+    if (highlight_left) attron(A_REVERSE);
+    printw("[<]");
+    if (highlight_left) attroff(A_REVERSE);
+
+    move(start_y + 1, start_x + 4);
+    if (highlight_down) attron(A_REVERSE);
+    printw("[v]");
+    if (highlight_down) attroff(A_REVERSE);
+
+    move(start_y + 1, start_x + 8);
+    if (highlight_right) attron(A_REVERSE);
+    printw("[>]");
+    if (highlight_right) attroff(A_REVERSE);
+}
+
 int move_left() {
     int moved = 0;
     for (int i = 0; i < SIZE; i++) {
@@ -142,8 +176,8 @@ int move_left() {
         for (int j = 0; j < SIZE; j++) {
             if (grid[i][j] != 0) {
                 if (target > 0 && grid[i][target - 1] == grid[i][j] && lastMerged != target - 1) {
-                    grid[i][target - 1] *= 2;         // Combină tile-uri
-                    score += grid[i][target - 1];       // Adaugă la scor valoarea nouă
+                    grid[i][target - 1] *= 2;
+                    score += grid[i][target - 1];
                     grid[i][j] = 0;
                     lastMerged = target - 1;
                     moved = 1;
@@ -161,8 +195,6 @@ int move_left() {
     return moved;
 }
 
-// --- Functia move_right ---
-// Muta tile-urile spre dreapta și combina-le.
 int move_right() {
     int moved = 0;
     for (int i = 0; i < SIZE; i++) {
@@ -190,8 +222,6 @@ int move_right() {
     return moved;
 }
 
-// --- Functia move_up ---
-// Muta tile-urile in sus si le combina
 int move_up() {
     int moved = 0;
     for (int j = 0; j < SIZE; j++) {
@@ -219,8 +249,6 @@ int move_up() {
     return moved;
 }
 
-// --- Functia move_down ---
-// Muta tile-urile în jos si combina-le.
 int move_down() {
     int moved = 0;
     for (int j = 0; j < SIZE; j++) {
@@ -248,48 +276,74 @@ int move_down() {
     return moved;
 }
 
-// --- Functia can_move ---
-// Verifica daca mai exista cel putin o mutare posibila.
 int can_move() {
-    for (int i = 0; i < SIZE; i++) {
-        for (int j = 0; j < SIZE; j++) {
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
             if (grid[i][j] == 0)
                 return 1;
-        }
-    }
-    for (int i = 0; i < SIZE; i++) {
-        for (int j = 0; j < SIZE; j++) {
+
+    for (int i = 0; i < SIZE; i++)
+        for (int j = 0; j < SIZE; j++)
             if ((j < SIZE - 1 && grid[i][j] == grid[i][j + 1]) ||
                 (i < SIZE - 1 && grid[i][j] == grid[i + 1][j]))
                 return 1;
-        }
-    }
+
     return 0;
 }
 
-// --- Functia main ---
-
 int main() {
-    srand(time(NULL)); 
+    srand(time(NULL));
     initscr();
     noecho();
     curs_set(0);
-    keypad(stdscr, TRUE);   // Permite captarea tastelor speciale (de ex. sageti)
+    keypad(stdscr, TRUE);
 
+    start_color();
+    init_pair(1, COLOR_WHITE, COLOR_BLACK);     // 2
+    init_pair(2, COLOR_YELLOW, COLOR_BLACK);    // 4
+    init_pair(3, COLOR_GREEN, COLOR_BLACK);     // 8
+    init_pair(4, COLOR_CYAN, COLOR_BLACK);      // 16
+    init_pair(5, COLOR_BLUE, COLOR_BLACK);      // 32
+    init_pair(6, COLOR_MAGENTA, COLOR_BLACK);   // 64
+    init_pair(7, COLOR_RED, COLOR_BLACK);       // 128
+    init_pair(8, COLOR_WHITE, COLOR_RED);       // 256
+    init_pair(9, COLOR_BLACK, COLOR_YELLOW);    // 512
+    init_pair(10, COLOR_BLACK, COLOR_GREEN);    // 1024
+    init_pair(11, COLOR_BLACK, COLOR_CYAN);     // 2048
+    init_pair(12, COLOR_BLACK, COLOR_MAGENTA);  // >2048
     init_game();
 
-    int ch;
+    int ch = 0;
     int moved;
+
     while (1) {
         clear();
-        draw_game(1, 2);   // Desenează jocul începând de la poziția (1,2)
+
+        int term_height, term_width;
+        getmaxyx(stdscr, term_height, term_width);
+        int grid_width = CELL_WIDTH * SIZE;
+        int grid_height = CELL_HEIGHT * SIZE;
+        int start_x = (term_width - grid_width) / 2;
+        int start_y = (term_height - grid_height) / 2;
+
+        draw_game(start_y, start_x, ch);
         refresh();
 
         if (!can_move()) {
-            mvprintw(0, 2, "Game Over! Apasa orice tasta pentru a iesi.");
+            mvprintw(0, 2, "Game Over! Apasa Q pentru a iesi sau R pentru restart.");
             refresh();
-            getch();
-            break;
+            while (1) {
+                int end_ch = getch();
+                if (end_ch == 'q' || end_ch == 'Q') {
+                    endwin();
+                    return 0;
+                } else if (end_ch == 'r' || end_ch == 'R') {
+                    init_game();
+                    ch = 0;
+                    break;
+                }
+            }
+            continue;
         }
 
         ch = getch();
@@ -312,9 +366,10 @@ int main() {
                 endwin();
                 return 0;
         }
-        // Dacă s-a produs o mutare, se generează un nou tile.
-        if (moved)
+        if (moved) {
+            usleep(40000);
             spawn_tile();
+        }
     }
 
     endwin();
